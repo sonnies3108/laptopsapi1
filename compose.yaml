@@ -1,0 +1,38 @@
+services:
+  # ---------- База даних ----------
+  db:
+    image: mysql:8.4            # зафіксована версія MySQL
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}   # значення беруться з файлу .env
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      # Дані MySQL лежать у volume "db_data", а не всередині контейнера.
+      # Тому вони переживають `docker compose down`.
+      - db_data:/var/lib/mysql
+    healthcheck:
+      # Перевірка "база справді готова приймати підключення"
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  # ---------- Наш застосунок ----------
+  app:
+    build: .                    # зібрати образ із Dockerfile в цій папці
+    ports:
+      - "8000:8000"             # порт 8000 комп'ютера -> порт 8000 контейнера
+    environment:
+      DB_HOST: db               # адреса бази = ім'я сервісу "db" (Docker сам розв'язує)
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy   # запускати app лише коли db пройшла healthcheck
+
+volumes:
+  db_data:

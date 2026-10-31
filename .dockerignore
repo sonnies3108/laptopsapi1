@@ -1,0 +1,10 @@
+# Що НЕ потрапляє в образ
+.env
+.git
+.gitignore
+__pycache__
+*.pyc
+.venv
+compose.yaml
+Dockerfile
+README.md

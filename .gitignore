@@ -1,0 +1,14 @@
+# Секрети
+.env
+terraform.tfvars
+*.tfvars
+
+# Terraform (знадобиться пізніше)
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
