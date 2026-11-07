@@ -1,0 +1,4 @@
+# Скопіюй цей файл як terraform.tfvars і впиши свій пароль.
+# Файл terraform.tfvars НЕ потрапляє в git (він у .gitignore).
+# Пароль: 8+ символів, лише літери й цифри, без пробілів і символів / ' " @
+db_password = "change_me_db_password1"
