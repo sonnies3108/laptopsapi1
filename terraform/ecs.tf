@@ -32,6 +32,12 @@ resource "aws_iam_role_policy_attachment" "task_execution" {
 
 resource "aws_ecs_cluster" "main" {
   name = "${var.project}-cluster"
+
+  # Lab 2: Container Insights дає метрики RunningTaskCount / DesiredTaskCount для дашборда
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
 }
 
 resource "aws_ecs_task_definition" "app" {
@@ -62,6 +68,11 @@ resource "aws_ecs_task_definition" "app" {
         { name = "DB_PORT", value = "3306" },
         { name = "DB_NAME", value = var.db_name },
         { name = "DB_USER", value = var.db_username },
+        # Lab 2: кеш cache-aside у спільному Redis (ElastiCache)
+        { name = "REDIS_HOST", value = aws_elasticache_cluster.cache.cache_nodes[0].address },
+        { name = "REDIS_PORT", value = "6379" },
+        { name = "CACHE_ENABLED", value = tostring(var.cache_enabled) },
+        { name = "CACHE_TTL_SECONDS", value = tostring(var.cache_ttl_seconds) },
       ]
 
       secrets = [
@@ -87,6 +98,12 @@ resource "aws_ecs_service" "app" {
   desired_count   = 1
   launch_type     = "FARGATE"
   force_delete    = true
+
+  # Lab 2: кількістю екземплярів тепер керує Application Auto Scaling,
+  # тому Terraform не повинен повертати desired_count назад до 1 при кожному apply.
+  lifecycle {
+    ignore_changes = [desired_count]
+  }
 
   health_check_grace_period_seconds = 90
 

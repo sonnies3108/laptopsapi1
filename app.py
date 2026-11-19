@@ -1,9 +1,12 @@
+import json
 import os
 import time
 from contextlib import asynccontextmanager
 
 import pymysql
-from fastapi import FastAPI, HTTPException
+import redis
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 
 
@@ -20,6 +23,33 @@ def get_connection():
         cursorclass=pymysql.cursors.DictCursor,  # рядки повертаються як словники
         autocommit=True,  # зміни зберігаються одразу
     )
+
+
+# ---------- 1б. Кеш (Redis), схема cache-aside ----------
+# REDIS_HOST не заданий -> кешу немає, застосунок працює як раніше.
+# CACHE_ENABLED=false -> кеш вимкнено глобально.
+# CACHE_TTL_SECONDS -> скільки секунд запис живе в кеші.
+CACHE_ENABLED = os.environ.get("CACHE_ENABLED", "true").lower() == "true"
+CACHE_TTL = int(os.environ.get("CACHE_TTL_SECONDS", "45"))
+REDIS_HOST = os.environ.get("REDIS_HOST")
+_redis = None
+
+
+def get_redis():
+    """Один клієнт на процес. Короткі таймаути: якщо Redis недоступний,
+    застосунок не зависає, а просто читає з бази."""
+    global _redis
+    if not REDIS_HOST:
+        return None
+    if _redis is None:
+        _redis = redis.Redis(
+            host=REDIS_HOST,
+            port=int(os.environ.get("REDIS_PORT", "6379")),
+            socket_connect_timeout=0.5,
+            socket_timeout=0.5,
+            decode_responses=True,
+        )
+    return _redis
 
 
 # ---------- 2. Дії при запуску програми ----------
@@ -71,12 +101,46 @@ def health():
     return {"status": "ok"}
 
 
-# Показати всі ноутбуки (як SELECT * FROM laptop)
+# Показати ноутбуки: найновіші першими, не більше `limit` (за замовчуванням 100).
+# Це найнавантаженіша операція читання, тому вона кешується (cache-aside):
+#   1) дивимось у Redis; є запис і TTL не сплив -> віддаємо його (X-Cache: HIT)
+#   2) немає -> читаємо з бази, кладемо в Redis на CACHE_TTL секунд (X-Cache: MISS)
+# Заголовок запиту `Cache-Control: no-cache` пропускає кеш (потрібен для порівняльних тестів).
 @app.get("/laptops")
-def list_laptops():
+def list_laptops(
+    request: Request,
+    response: Response,
+    limit: int = Query(100, ge=1, le=1000),
+):
+    wants_cache = (
+        CACHE_ENABLED
+        and request.headers.get("cache-control", "").lower() != "no-cache"
+    )
+    r = get_redis() if wants_cache else None
+    key = f"laptops:list:{limit}"
+
+    if r is not None:
+        try:
+            cached = r.get(key)
+            if cached is not None:
+                response.headers["X-Cache"] = "HIT"
+                return json.loads(cached)
+        except redis.RedisError:
+            r = None  # Redis недоступний: працюємо без кешу
+
     with get_connection() as conn, conn.cursor() as cur:
-        cur.execute("SELECT * FROM laptop")
-        return cur.fetchall()
+        cur.execute("SELECT * FROM laptop ORDER BY code DESC LIMIT %s", (limit,))
+        rows = jsonable_encoder(cur.fetchall())  # Decimal -> число, щоб HIT і MISS були однакові
+
+    if r is not None:
+        try:
+            r.setex(key, CACHE_TTL, json.dumps(rows))
+        except redis.RedisError:
+            pass
+        response.headers["X-Cache"] = "MISS"
+    else:
+        response.headers["X-Cache"] = "BYPASS"
+    return rows
 
 
 # Показати один ноутбук за кодом

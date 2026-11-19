@@ -1,4 +1,10 @@
-# Скопіюй цей файл як terraform.tfvars і впиши свій пароль.
+# Скопіюй цей файл як terraform.tfvars і впиши свої значення.
 # Файл terraform.tfvars НЕ потрапляє в git (він у .gitignore).
 # Пароль: 8+ символів, лише літери й цифри, без пробілів і символів / ' " @
 db_password = "change_me_db_password1"
+
+# Lab 2: email для сповіщень (SNS надішле лист із підтвердженням підписки)
+alert_email = "you@example.com"
+
+# Lab 2: після зміни коду застосунку збери і запуш образ з новим тегом
+image_tag = "v2"

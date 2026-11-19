@@ -19,6 +19,10 @@ services:
       retries: 20
       start_period: 20s
 
+  # ---------- Кеш (Lab 2) ----------
+  redis:
+    image: redis:7.4-alpine
+
   # ---------- Наш застосунок ----------
   app:
     build: .                    # зібрати образ із Dockerfile в цій папці
@@ -30,9 +34,13 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis         # Lab 2: кеш
+      CACHE_TTL_SECONDS: "45"
     depends_on:
       db:
         condition: service_healthy   # запускати app лише коли db пройшла healthcheck
+      redis:
+        condition: service_started
 
 volumes:
   db_data:

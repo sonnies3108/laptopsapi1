@@ -152,3 +152,10 @@ GitHub Actions. Він вимкнений, бо створення OIDC-пров
 Акаунт створено через спрощену реєстрацію AWS («Sign up for AWS (new)»), де політики організації
 (SCP) керує AWS, і власні змінити не можна. Використання довговічних ключів доступу замість OIDC
 суперечить умовам лабораторної, тому workflow не додано.
+
+## Лабораторна робота 2: масштабування, моніторинг, кеш
+
+- `terraform/autoscaling.tf`: автомасштабування ECS (1–3 екземпляри, ціль CPU 60 %). Опис: [docs/AUTOSCALING.md](docs/AUTOSCALING.md)
+- `terraform/monitoring.tf`: дашборд CloudWatch, SNS і алерт на CPU. Опис: [docs/ALERTS.md](docs/ALERTS.md)
+- `terraform/elasticache.tf` і `app.py`: кеш cache-aside у Redis. Опис: [docs/CACHE.md](docs/CACHE.md)
+- `loadtest/`: сценарій k6. Опис і результати: [docs/LOADTEST.md](docs/LOADTEST.md)
